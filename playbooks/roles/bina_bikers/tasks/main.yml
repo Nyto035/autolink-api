@@ -1,0 +1,140 @@
+---
+
+- name: Make directories
+  file: name={{ item }} owner={{ deploy_user }} group={{ deploy_group }} state=directory mode=u=rwx,g=rwx,o=rx recurse=yes
+  with_items:
+      - "{{install_dir}}"
+      - "{{log_dir}}"
+      - "{{static_dir}}"
+      - "{{media_dir}}"
+  become: yes
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Install bina_bikers
+  git:
+    repo: https://dmbugua@bitbucket.org/bina-bikers/bina-bikers-api.git
+    dest: "/opt/bina_bikers"
+  become: yes
+  become_user: "{{deploy_user}}"
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Create env file
+  template: src={{env_file}} dest={{install_dir}}/env.sh
+  become: yes
+  become_user: "{{deploy_user}}"
+  tags: ["bina_bikers", "bina_bikers_package", "env_reload", "cx_oracle"]
+
+
+- name: Change ownership of static dir
+  file: name={{static_dir}} owner=www-data group=www-data state=directory mode=u=rwx,g=rwx,o=rx recurse=yes
+  become: yes
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- include: database.yml
+  when: use_localhost_postgresql
+
+- name: perform django migration
+  shell: '. {{venv_dir}}/bin/activate && . {{ install_dir }}/env.sh && {{ django_manage }} migrate --noinput'
+  become: yes
+  become_user: "{{deploy_user}}"
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+
+- name: collect static files
+  shell: '. {{venv_dir}}/bin/activate && . {{install_dir}}/env.sh && {{django_manage}} collectstatic --noinput --clear'
+  become: yes
+  become_user: "{{deploy_user}}"
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Populate search document fields
+  shell: '. {{venv_dir}}/bin/activate && . {{ install_dir }}/env.sh && {{ django_manage }} search_setup'
+  async: 600 # run up to 10 minutes
+  poll: 30  # poll every 30 seconds
+  when: setup_search
+  become: yes
+  become_user: "{{deploy_user}}"
+  tags: ["bina_bikers", "bina_bikers_search"]
+
+- name: set bina_bikers to nginx sites-available
+  template: >
+    src=bina_bikers.nginx.conf
+    dest="/etc/nginx/sites-available/{{bina_bikers_nginx}}"
+    owner="www-data"
+  become: yes
+  tags: ["bina_bikers", "nginx_config"]
+
+
+- name: set nginx sites-available to sites-enabled
+  file: >
+    src="/etc/nginx/sites-available/{{bina_bikers_nginx}}"
+    dest="/etc/nginx/sites-enabled/{{bina_bikers_nginx}}"
+    state=link
+  become: yes
+  tags: ["bina_bikers", "nginx_config"]
+
+
+- name: stop nginx
+  service: >
+    name=nginx state=stopped
+  become: yes
+  tags: ["bina_bikers", "nginx_config"]
+
+
+- name: start nginx
+  service: >
+    name=nginx state=started
+  become: yes
+  tags: ["bina_bikers", "nginx_config"]
+
+
+- name: add runfiles for supervisor
+  template: src={{ item.src }} dest={{install_dir}}/{{ item.dest }}
+  become: yes
+  become_user: "{{deploy_user}}"
+  with_items:
+      - { src: "bina_bikers.run.sh", dest: "run.sh" }
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+
+- name: add supervisor server config files to supervisor conf.d
+  template: src={{ item.src }} dest={{supervisor_conf_dir}}/{{ item.dest }}
+  become: yes
+  with_items:
+      - { src: "bina_bikers.supervisor.conf", dest: "{{bina_bikers_supervisor}}.conf" }
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+
+- name: Reread supervisor
+  shell: supervisorctl reread && supervisorctl update && supervisorctl restart {{bina_bikers_supervisor}}:*
+  become: yes
+  tags: ["bina_bikers", "bina_bikers_package", "env_reload"]
+
+
+- name: Wait for bina_bikers service to start
+  pause: seconds=10
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+
+# TODO: Load permissions and scopes to authserver
+# TODO: create roles
+- name: Verify bina_bikers service is up
+  uri: url=http://localhost:{{bina_bikers_port}} return_content=yes
+  register: homepage
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Verify it's actually the bina_bikers service
+  action: fail
+  when: "'LOGIN' in homepage.content"
+  ignore_errors: "{{ ansible_check_mode }}"
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Verify bina_bikers service can be accessed from nginx
+  uri: url=http://{{server_name}} return_content=yes
+  register: nginxpage
+  tags: ["bina_bikers", "bina_bikers_package"]
+
+- name: Verify that nginx is proxying the bina_bikers service
+  action: fail
+  when: "'LOGIN' in nginxpage.content"
+  ignore_errors: "{{ ansible_check_mode }}"
+  tags: ["bina_bikers", "bina_bikers_package"]

@@ -1,0 +1,32 @@
+---
+
+install_dir: "/opt/{{name}}"
+log_dir: "/var/log/{{name}}"
+venv_dir: "{{install_dir}}/venv"
+static_dir: "{{install_dir}}/static"
+csrf_cookie_name: 'kuki_ya_siesrf'
+session_cookie_name: 'kuki_ya_saysion'
+media_dir: "{{install_dir}}/media"
+django_manage: "{{ venv_dir }}/bin/bina_bikers_manage"
+env_file: "integration_services.env.sh"
+bina_bikers_database: {user: bina_bikers, password: "{{bina_bikers.pg_db_pass}}", name: "{{name}}", host: localhost, port: 5432}
+database_url: "postgres://{{bina_bikers_database.user}}:{{bina_bikers_database.password}}@{{bina_bikers_database.host}}:{{bina_bikers_database.port}}/{{bina_bikers_database.name}}"
+bina_bikers_backend: "{{name}}_backend"
+integration_services_port: 9050
+gunicorn_timeout: 30
+gunicorn_graceful_timeout: 1
+integration_services_nginx: "{{name}}"
+allowed_hosts: ""
+bina_bikers_supervisor: "{{name}}"
+load_icd10_data: false
+load_icd10_vol2_data: true
+setup_search: false
+bina_bikers:
+    pg_db_pass: "bina_bikers"
+    site_name: ""
+aws:
+    key: ""
+    secret: ""
+
+use_localhost_postgresql: true
+use_localhost_rabbit: true

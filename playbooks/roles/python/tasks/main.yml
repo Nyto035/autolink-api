@@ -1,0 +1,31 @@
+---
+
+- name: Install python, python-dev, python-setuptools, python3-pip and virtualenv
+  apt: name={{ item }} state=present
+  become: yes
+  with_items:
+    - python3-dev
+    - python3-setuptools
+    - python3-pip
+    - python-dev
+    - python-virtualenv
+    - python-pip
+    - python-psycopg2
+    - python3-psycopg2
+    - python3-cffi
+    - libcairo2
+    - libpango1.0-0
+    - libgdk-pixbuf2.0-0
+    - libffi-dev
+    - shared-mime-info
+  tags: ["python"]
+
+- name: update pip
+  pip: name=pip state=latest
+  args:
+    executable:"{{item}}"
+  with_items: >-
+    - pip2
+    - pip3
+  become: yes
+  tags: ["python"]

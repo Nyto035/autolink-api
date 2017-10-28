@@ -1,0 +1,7 @@
+---
+
+pg_unix_socket: "/var/run/postgresql/"
+pg_ubuntu_version: "xenial"
+pg_version: "9.6"
+max_connections: 100
+checkpoint_timeout: 10

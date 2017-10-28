@@ -1,0 +1,90 @@
+---
+- name: Setup database user
+  postgresql_user: >
+      name={{bina_bikers_database.user}}
+      password={{bina_bikers_database.password}}
+      state=present
+      role_attr_flags=LOGIN,SUPERUSER
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
+
+
+- name: Setup database
+  postgresql_db: >
+      name={{bina_bikers_database.name}}
+      owner=postgres
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      state=present
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
+
+
+- name: Grant database privileges to users on databases
+  postgresql_privs: >
+      db={{bina_bikers_database.name}}
+      state=present
+      type=database
+      objs={{bina_bikers_database.name}}
+      role={{bina_bikers_database.user}}
+      privs=ALL
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
+
+
+- name: Grant table privileges to users on databases
+  postgresql_privs: >
+      db={{bina_bikers_database.name}}
+      state=present
+      type=table
+      objs=ALL_IN_SCHEMA
+      role={{bina_bikers_database.user}}
+      privs=ALL
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
+
+
+- name: Grant sequence privileges to users on databases
+  postgresql_privs: >
+      db={{bina_bikers_database.name}}
+      state=present
+      type=sequence
+      objs=ALL_IN_SCHEMA
+      role={{bina_bikers_database.user}}
+      privs=ALL
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
+
+
+- name: Grant schema privileges to users on databases
+  postgresql_privs: >
+      db={{bina_bikers_database.name}}
+      state=present
+      type=schema
+      objs=public
+      role={{bina_bikers_database.user}}
+      privs=ALL
+      login_host={{bina_bikers_database.host}}
+      port={{bina_bikers_database.port}}
+      login_unix_socket={{pg_unix_socket}}
+  become: yes
+  become_user: postgres
+  tags: ["bina_bikers", "bina_bikers_db"]
